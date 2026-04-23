@@ -1,0 +1,17 @@
+image:
+  repository: ghcr.io/obot-platform/aviatrix-network-policy-controller
+  tag: main
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+secretName: obot-network-policy-provider
+obotStorageURL: ""
+obotStorageTokenFile: /var/run/secrets/obot-network-policy-provider/apiKey
+mcpRuntimeNamespace: obot-mcp
