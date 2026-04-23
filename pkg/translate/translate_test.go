@@ -45,7 +45,7 @@ func TestTranslateDenyOnly(t *testing.T) {
 	require.Equal(t, "deny", fp.Spec.Rules[0].Action)
 }
 
-func TestTranslateNoEnforcement(t *testing.T) {
+func TestTranslateDefaultWildcardDomain(t *testing.T) {
 	policy := &obotv1.MCPNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "policy-c"},
 		Spec: obotv1.MCPNetworkPolicySpec{
@@ -54,7 +54,13 @@ func TestTranslateNoEnforcement(t *testing.T) {
 		},
 	}
 
-	require.Nil(t, ToFirewallPolicy(policy, "obot-mcp"))
+	fp := ToFirewallPolicy(policy, "obot-mcp")
+	require.NotNil(t, fp)
+	require.Len(t, fp.Spec.WebGroups, 1)
+	require.Equal(t, []string{"*"}, fp.Spec.WebGroups[0].Domains)
+	require.Len(t, fp.Spec.Rules, 2)
+	require.Equal(t, "allow-approved-egress", fp.Spec.Rules[0].Name)
+	require.Equal(t, "deny-all-external", fp.Spec.Rules[1].Name)
 }
 
 func TestProducedObjectShape(t *testing.T) {

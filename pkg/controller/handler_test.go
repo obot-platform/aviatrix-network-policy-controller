@@ -117,8 +117,11 @@ func TestHandlerLifecycle(t *testing.T) {
 	if _, err := (&tester.Harness{Scheme: scheme}).InvokeFunc(t, policy, handler.Reconcile); err != nil {
 		t.Fatal(err)
 	}
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-a-fw"}, &created); err == nil {
-		t.Fatal("expected FirewallPolicy to be deleted when policy is unenforced")
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-b-fw"}, &created); err != nil {
+		t.Fatal(err)
+	}
+	if got := created.Spec.WebGroups[0].Domains; len(got) != 1 || got[0] != "*" {
+		t.Fatalf("expected wildcard domain fallback, got %v", got)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -27,12 +28,11 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 	if policy == nil {
 		return nil
 	}
-	if len(policy.Spec.EgressDomains) == 0 && !policy.Spec.DenyAllEgress {
-		// TODO(g-linville): this should create a policy with one domain set to "*"
-		return nil
-	}
 
 	domains := slices.Clone(policy.Spec.EgressDomains)
+	if len(domains) == 0 && !policy.Spec.DenyAllEgress {
+		domains = []string{"*"}
+	}
 	slices.Sort(domains)
 
 	fp := &aviatrixv1alpha1.FirewallPolicy{
@@ -59,7 +59,7 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 					Selectors: []aviatrixv1alpha1.SmartGroupSelector{{
 						Type:         "k8s",
 						K8sNamespace: runtimeNamespace,
-						Tags:         mapsClone(policy.Spec.PodSelector),
+						Tags:         maps.Clone(policy.Spec.PodSelector),
 					}},
 				},
 				{
@@ -81,7 +81,7 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 			Name:   "allow-approved-egress",
 			Action: "permit",
 			Selector: &aviatrixv1alpha1.RuleSelector{
-				MatchLabels: mapsClone(policy.Spec.PodSelector),
+				MatchLabels: maps.Clone(policy.Spec.PodSelector),
 			},
 			DestinationSmartGroups: []aviatrixv1alpha1.SmartGroupRef{{Name: "any-destination"}},
 			WebGroups:              []aviatrixv1alpha1.SmartGroupRef{{Name: fmt.Sprintf("obot-%s-approved-domains", policy.Spec.MCPServerName)}},
@@ -96,7 +96,7 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 			Name:   "deny-all-external",
 			Action: "deny",
 			Selector: &aviatrixv1alpha1.RuleSelector{
-				MatchLabels: mapsClone(policy.Spec.PodSelector),
+				MatchLabels: maps.Clone(policy.Spec.PodSelector),
 			},
 			DestinationSmartGroups: []aviatrixv1alpha1.SmartGroupRef{{Name: "any-destination"}},
 			Protocol:               "any",
@@ -131,16 +131,4 @@ func sanitizeName(name string) string {
 		name = strings.ReplaceAll(name, "--", "-")
 	}
 	return name
-}
-
-// TODO(g-linville): is there a library function we can use for this?
-func mapsClone(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
 }
