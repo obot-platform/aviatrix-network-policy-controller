@@ -3,6 +3,7 @@ module github.com/obot-platform/aviatrix-network-policy-controller
 go 1.26.2
 
 require (
+	github.com/go-logr/stdr v1.2.2
 	github.com/obot-platform/nah v0.0.0-20260420174246-bea1b9e01234
 	github.com/stretchr/testify v1.11.1
 	k8s.io/apimachinery v0.34.7
@@ -18,7 +19,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
-	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect

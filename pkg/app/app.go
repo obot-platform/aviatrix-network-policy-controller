@@ -31,7 +31,11 @@ func Run(ctx context.Context) error {
 	storageConfig := &rest.Config{
 		Host:            cfg.ObotStorageURL,
 		BearerTokenFile: cfg.ObotStorageTokenFile,
-		TLSClientConfig: rest.TLSClientConfig{Insecure: true}, // the controller talks to Obot in the same k8s namespace, so no HTTPS
+		ContentConfig: rest.ContentConfig{
+			AcceptContentTypes: "application/json",
+			ContentType:        "application/json",
+		},
+		TLSClientConfig: rest.TLSClientConfig{Insecure: true}, // The controller talks to Obot over HTTPS, but skips TLS verification for in-cluster access.
 	}
 
 	r, err := nah.NewRouter("aviatrix-network-policy-controller", &nah.Options{
@@ -59,5 +63,17 @@ func Run(ctx context.Context) error {
 	}
 	r.Type(&obotv1.MCPNetworkPolicy{}).IncludeRemoved().HandlerFunc(h.Reconcile)
 
-	return r.Start(ctx)
+	if err := r.Start(ctx); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-r.Stopped():
+		if ctx.Err() != nil {
+			return nil
+		}
+		return fmt.Errorf("storage router stopped")
+	}
 }
