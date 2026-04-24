@@ -100,8 +100,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
 github.com/nightlyone/lockfile v1.0.0/go.mod h1:rywoIealpdNse2r832aiD9jRk8ErCatROs6LzC841CI=
-github.com/obot-platform/nah v0.0.0-20260420174246-bea1b9e01234 h1:dZm1hwaTeXpxg476eNRqI9Rpxl4PAOm9AxX7iEAsfOQ=
-github.com/obot-platform/nah v0.0.0-20260420174246-bea1b9e01234/go.mod h1:+dYHcGg+BgcdZ2+eo3XCxhJFNQjmaKNRgD2loOvcFN0=
+github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac h1:bHzcvYVp5AW+NyS45YzUmp6bZS5iUO9BY0HZX+MMi98=
+github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac/go.mod h1:+dYHcGg+BgcdZ2+eo3XCxhJFNQjmaKNRgD2loOvcFN0=
 github.com/onsi/ginkgo/v2 v2.22.0 h1:Yed107/8DjTr0lKCNt7Dn8yQ6ybuDRQoMGrNFKzMfHg=
 github.com/onsi/ginkgo/v2 v2.22.0/go.mod h1:7Du3c42kxCUegi0IImZ1wUQzMBVecgIHjR1C+NkhLQo=
 github.com/onsi/gomega v1.36.1 h1:bJDPBO7ibjxcbHMgSCoo4Yj18UWbKDlLwX1x9sybDcw=

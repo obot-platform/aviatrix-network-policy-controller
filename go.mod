@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/go-logr/stdr v1.2.2
-	github.com/obot-platform/nah v0.0.0-20260420174246-bea1b9e01234
+	github.com/obot-platform/nah v0.0.0-20260424131842-3fc648d20cac
 	github.com/stretchr/testify v1.11.1
 	k8s.io/apimachinery v0.34.7
 	k8s.io/client-go v0.34.7
