@@ -51,7 +51,7 @@ func TestHandlerCreatesManagedFirewallPolicy(t *testing.T) {
 		Spec: obotv1.MCPNetworkPolicySpec{
 			MCPServerName: "server-a",
 			PodSelector:   map[string]string{"app": "server-a"},
-			EgressDomains: []string{"api.example.com"},
+			EgressDomains: []string{"*.google.com"},
 		},
 	}
 
@@ -66,6 +66,9 @@ func TestHandlerCreatesManagedFirewallPolicy(t *testing.T) {
 	}
 	if created.Labels["obot.ai/mcp-server-name"] != "server-a" {
 		t.Fatalf("unexpected labels: %v", created.Labels)
+	}
+	if got := created.Spec.WebGroups[0].Domains; len(got) != 1 || got[0] != "*.google.com" {
+		t.Fatalf("expected wildcard domain to be preserved, got %v", got)
 	}
 }
 

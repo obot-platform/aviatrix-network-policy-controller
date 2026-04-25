@@ -15,7 +15,7 @@ func TestTranslateApprovedDomains(t *testing.T) {
 		Spec: obotv1.MCPNetworkPolicySpec{
 			MCPServerName: "server-a",
 			PodSelector:   map[string]string{"app": "server-a"},
-			EgressDomains: []string{"b.example.com", "a.example.com"},
+			EgressDomains: []string{"b.example.com", "*.google.com", "a.example.com"},
 		},
 	}
 
@@ -24,7 +24,7 @@ func TestTranslateApprovedDomains(t *testing.T) {
 	require.Len(t, fp.Spec.Rules, 2)
 	require.Equal(t, "allow-approved-egress", fp.Spec.Rules[0].Name)
 	require.Equal(t, "deny-all-external", fp.Spec.Rules[1].Name)
-	require.Equal(t, []string{"a.example.com", "b.example.com"}, fp.Spec.WebGroups[0].Domains)
+	require.Equal(t, []string{"*.google.com", "a.example.com", "b.example.com"}, fp.Spec.WebGroups[0].Domains)
 	require.Equal(t, map[string]string{"app": "server-a"}, fp.Spec.Rules[0].Selector.MatchLabels)
 }
 
