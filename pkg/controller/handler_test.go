@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	aviatrixv1alpha1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/networking.aviatrix.com/v1alpha1"
 	obotv1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/obot.obot.ai/v1"
@@ -15,6 +17,20 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+type triggerCall struct {
+	gvk schema.GroupVersionKind
+	key string
+}
+
+type recordingTrigger struct {
+	calls []triggerCall
+}
+
+func (r *recordingTrigger) Trigger(_ context.Context, gvk schema.GroupVersionKind, key string, _ time.Duration) error {
+	r.calls = append(r.calls, triggerCall{gvk: gvk, key: key})
+	return nil
+}
 
 func newScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
@@ -61,7 +77,7 @@ func TestHandlerCreatesManagedFirewallPolicy(t *testing.T) {
 	}
 
 	var created aviatrixv1alpha1.FirewallPolicy
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-a-fw"}, &created); err != nil {
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-policy-a-fw"}, &created); err != nil {
 		t.Fatal(err)
 	}
 	if created.Labels["obot.ai/mcp-server-name"] != "server-a" {
@@ -89,7 +105,7 @@ func TestHandlerLifecycle(t *testing.T) {
 	}
 
 	var created aviatrixv1alpha1.FirewallPolicy
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-a-fw"}, &created); err != nil {
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-policy-a-fw"}, &created); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,7 +113,7 @@ func TestHandlerLifecycle(t *testing.T) {
 	if _, err := (&tester.Harness{Scheme: scheme}).InvokeFunc(t, policy, handler.Reconcile); err != nil {
 		t.Fatal(err)
 	}
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-a-fw"}, &created); err != nil {
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-policy-a-fw"}, &created); err != nil {
 		t.Fatal(err)
 	}
 	if created.Spec.WebGroups[0].Domains[0] != "new.example.com" {
@@ -108,11 +124,11 @@ func TestHandlerLifecycle(t *testing.T) {
 	if _, err := (&tester.Harness{Scheme: scheme}).InvokeFunc(t, policy, handler.Reconcile); err != nil {
 		t.Fatal(err)
 	}
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-b-fw"}, &created); err != nil {
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-policy-a-fw"}, &created); err != nil {
 		t.Fatal(err)
 	}
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-a-fw"}, &aviatrixv1alpha1.FirewallPolicy{}); err == nil {
-		t.Fatal("expected stale FirewallPolicy to be pruned after rename")
+	if created.Labels["obot.ai/mcp-server-name"] != "server-b" {
+		t.Fatalf("expected source server label to be updated after server rename, got %v", created.Labels)
 	}
 
 	policy.Spec.EgressDomains = nil
@@ -120,7 +136,7 @@ func TestHandlerLifecycle(t *testing.T) {
 	if _, err := (&tester.Harness{Scheme: scheme}).InvokeFunc(t, policy, handler.Reconcile); err != nil {
 		t.Fatal(err)
 	}
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-b-fw"}, &created); err != nil {
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-policy-a-fw"}, &created); err != nil {
 		t.Fatal(err)
 	}
 	if got := created.Spec.WebGroups[0].Domains; len(got) != 1 || got[0] != "*" {
@@ -137,7 +153,7 @@ func TestHandlerDeletesManagedFirewallPolicyWhenSourceRemoved(t *testing.T) {
 
 	existing := &aviatrixv1alpha1.FirewallPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "obot-server-a-fw",
+			Name:        "obot-policy-a-fw",
 			Namespace:   "obot-mcp",
 			Annotations: annotations,
 			Labels:      labels,
@@ -153,7 +169,94 @@ func TestHandlerDeletesManagedFirewallPolicyWhenSourceRemoved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-server-a-fw"}, &aviatrixv1alpha1.FirewallPolicy{}); err == nil {
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-policy-a-fw"}, &aviatrixv1alpha1.FirewallPolicy{}); err == nil {
 		t.Fatal("expected FirewallPolicy to be deleted on source removal")
+	}
+}
+
+func TestFirewallPolicyWatcherTriggersSourceOnDelete(t *testing.T) {
+	scheme := newScheme(t)
+	labels, annotations, err := apply.GetLabelsAndAnnotations(scheme, sourceSubContext("default", "policy-a"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	trigger := &recordingTrigger{}
+	watcher := NewFirewallPolicyWatcher(trigger, nil, "obot-mcp")
+	firewallPolicy := &aviatrixv1alpha1.FirewallPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "obot-policy-a-fw",
+			Namespace:   "obot-mcp",
+			Annotations: annotations,
+			Labels:      labels,
+		},
+	}
+
+	if err := watcher.Handle(nahrouter.Request{
+		Ctx:       t.Context(),
+		Object:    firewallPolicy,
+		Name:      firewallPolicy.Name,
+		Namespace: firewallPolicy.Namespace,
+	}, &nahrouter.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := watcher.Handle(nahrouter.Request{
+		Ctx:       t.Context(),
+		Name:      firewallPolicy.Name,
+		Namespace: firewallPolicy.Namespace,
+	}, &nahrouter.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(trigger.calls) != 2 {
+		t.Fatalf("expected update and delete to trigger source reconciles, got %d", len(trigger.calls))
+	}
+	for _, call := range trigger.calls {
+		if call.gvk != obotv1.SchemeGroupVersion.WithKind("MCPNetworkPolicy") {
+			t.Fatalf("unexpected gvk: %s", call.gvk)
+		}
+		if call.key != "default/policy-a" {
+			t.Fatalf("unexpected source key: %s", call.key)
+		}
+	}
+}
+
+func TestFirewallPolicyWatcherIgnoresUnmanagedDelete(t *testing.T) {
+	trigger := &recordingTrigger{}
+	watcher := NewFirewallPolicyWatcher(trigger, nil, "obot-mcp")
+
+	if err := watcher.Handle(nahrouter.Request{
+		Ctx:       t.Context(),
+		Name:      "unmanaged",
+		Namespace: "obot-mcp",
+	}, &nahrouter.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+	if len(trigger.calls) != 0 {
+		t.Fatalf("expected no trigger calls for unmanaged delete, got %d", len(trigger.calls))
+	}
+}
+
+func TestFirewallPolicyWatcherFindsSourceForUnindexedDelete(t *testing.T) {
+	scheme := newScheme(t)
+	sourceClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&obotv1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-a", Namespace: "default"},
+	}).Build()
+	trigger := &recordingTrigger{}
+	watcher := NewFirewallPolicyWatcher(trigger, sourceClient, "obot-mcp")
+
+	if err := watcher.Handle(nahrouter.Request{
+		Ctx:       t.Context(),
+		Name:      "obot-policy-a-fw",
+		Namespace: "obot-mcp",
+	}, &nahrouter.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(trigger.calls) != 1 {
+		t.Fatalf("expected one trigger call, got %d", len(trigger.calls))
+	}
+	if trigger.calls[0].key != "default/policy-a" {
+		t.Fatalf("unexpected source key: %s", trigger.calls[0].key)
 	}
 }

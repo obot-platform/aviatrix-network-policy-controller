@@ -41,7 +41,7 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 			Kind:       "FirewallPolicy",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      NameForMCPServer(policy.Spec.MCPServerName),
+			Name:      NameForMCPNetworkPolicy(policy.Name),
 			Namespace: runtimeNamespace,
 			Labels: map[string]string{
 				LabelManagedBy:    ManagedByValue,
@@ -107,8 +107,8 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 	return fp
 }
 
-func NameForMCPServer(mcpServerName string) string {
-	base := sanitizeName(mcpServerName)
+func NameForMCPNetworkPolicy(policyName string) string {
+	base := sanitizeName(policyName)
 	name := "obot-" + base + "-fw"
 	if len(name) <= 63 {
 		return strings.Trim(name, "-")

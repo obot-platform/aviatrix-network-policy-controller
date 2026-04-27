@@ -63,7 +63,22 @@ func Run(ctx context.Context) error {
 	}
 	r.Type(&obotv1.MCPNetworkPolicy{}).IncludeRemoved().HandlerFunc(h.Reconcile)
 
+	runtimeRouter, err := nah.NewRouter("aviatrix-firewallpolicy-watcher", &nah.Options{
+		RESTConfig:  inCluster,
+		Scheme:      scheme,
+		Namespace:   cfg.MCPRuntimeNamespace,
+		HealthzPort: -1,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create runtime router: %w", err)
+	}
+	firewallPolicyWatcher := controller.NewFirewallPolicyWatcher(r.Backend(), r.Backend(), cfg.MCPRuntimeNamespace)
+	runtimeRouter.Type(&aviatrixv1alpha1.FirewallPolicy{}).IncludeRemoved().HandlerFunc(firewallPolicyWatcher.Handle)
+
 	if err := r.Start(ctx); err != nil {
+		return err
+	}
+	if err := runtimeRouter.Start(ctx); err != nil {
 		return err
 	}
 
@@ -75,5 +90,10 @@ func Run(ctx context.Context) error {
 			return nil
 		}
 		return fmt.Errorf("storage router stopped")
+	case <-runtimeRouter.Stopped():
+		if ctx.Err() != nil {
+			return nil
+		}
+		return fmt.Errorf("runtime router stopped")
 	}
 }

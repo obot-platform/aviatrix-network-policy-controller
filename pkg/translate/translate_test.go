@@ -21,6 +21,7 @@ func TestTranslateApprovedDomains(t *testing.T) {
 
 	fp := ToFirewallPolicy(policy, "obot-mcp")
 	require.NotNil(t, fp)
+	require.Equal(t, "obot-policy-a-fw", fp.Name)
 	require.Len(t, fp.Spec.Rules, 2)
 	require.Equal(t, "allow-approved-egress", fp.Spec.Rules[0].Name)
 	require.Equal(t, "deny-all-external", fp.Spec.Rules[1].Name)

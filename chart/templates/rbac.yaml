@@ -21,29 +21,3 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ include "aviatrix-network-policy-controller.fullname" . }}
-{{- if .Values.obot.serviceAccount.name }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ include "aviatrix-network-policy-controller.obotRoleName" . }}
-  namespace: {{ .Values.mcpRuntimeNamespace }}
-rules:
-  - apiGroups: ["networking.aviatrix.com"]
-    resources: ["firewallpolicies"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ include "aviatrix-network-policy-controller.obotRoleName" . }}
-  namespace: {{ .Values.mcpRuntimeNamespace }}
-subjects:
-  - kind: ServiceAccount
-    name: {{ .Values.obot.serviceAccount.name }}
-    namespace: {{ default .Release.Namespace .Values.obot.serviceAccount.namespace }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: {{ include "aviatrix-network-policy-controller.obotRoleName" . }}
-{{- end }}
