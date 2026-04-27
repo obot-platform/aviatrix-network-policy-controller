@@ -43,7 +43,7 @@ func ReadToken(path string) (string, error) {
 	}
 	token := strings.TrimSpace(string(data))
 	if token == "" {
-		return "", fmt.Errorf("Obot storage token file %q is empty", path)
+		return "", fmt.Errorf("obot storage token file %q is empty", path)
 	}
 	return token, nil
 }

@@ -18,6 +18,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type MCPNetworkPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -32,43 +33,10 @@ type MCPNetworkPolicySpec struct {
 	DenyAllEgress bool              `json:"denyAllEgress,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type MCPNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []MCPNetworkPolicy `json:"items"`
-}
-
-func (in *MCPNetworkPolicy) DeepCopyObject() runtime.Object {
-	if in == nil {
-		return nil
-	}
-	out := new(MCPNetworkPolicy)
-	*out = *in
-	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
-	if in.Spec.PodSelector != nil {
-		out.Spec.PodSelector = make(map[string]string, len(in.Spec.PodSelector))
-		for k, v := range in.Spec.PodSelector {
-			out.Spec.PodSelector[k] = v
-		}
-	}
-	if in.Spec.EgressDomains != nil {
-		out.Spec.EgressDomains = append([]string(nil), in.Spec.EgressDomains...)
-	}
-	return out
-}
-
-func (in *MCPNetworkPolicyList) DeepCopyObject() runtime.Object {
-	if in == nil {
-		return nil
-	}
-	out := new(MCPNetworkPolicyList)
-	*out = *in
-	if in.Items != nil {
-		out.Items = make([]MCPNetworkPolicy, len(in.Items))
-		for i := range in.Items {
-			out.Items[i] = *in.Items[i].DeepCopyObject().(*MCPNetworkPolicy)
-		}
-	}
-	return out
 }
