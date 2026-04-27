@@ -17,3 +17,7 @@
 {{- include "aviatrix-network-policy-controller.fullname" . -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "aviatrix-network-policy-controller.obotRoleName" -}}
+{{- printf "%s-obot" (include "aviatrix-network-policy-controller.fullname" . | trunc 58 | trimSuffix "-") | trunc 63 | trimSuffix "-" -}}
+{{- end -}}

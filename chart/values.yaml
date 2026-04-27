@@ -15,3 +15,8 @@ secretName: obot-network-policy-provider
 obotStorageURL: ""
 obotStorageTokenFile: /var/run/secrets/obot-network-policy-provider/apiKey
 mcpRuntimeNamespace: obot-mcp
+
+obot:
+  serviceAccount:
+    name: ""
+    namespace: ""
