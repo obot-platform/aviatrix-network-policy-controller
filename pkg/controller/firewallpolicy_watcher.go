@@ -55,13 +55,24 @@ func (w *FirewallPolicyWatcher) Handle(req router.Request, _ router.Response) er
 	firewallKey := router.Key(req.Namespace, req.Name).String()
 	source, ok, err := w.sourceForRequest(req.Ctx, firewallKey, req.Name, req.Object)
 	if err != nil {
+		controllerLog.Error(err, "failed to resolve source MCPNetworkPolicy for FirewallPolicy event",
+			"firewallPolicyNamespace", req.Namespace,
+			"firewallPolicyName", req.Name)
 		return err
 	}
 	if !ok {
 		return nil
 	}
 
-	return w.SourceTrigger.Trigger(req.Ctx, obotv1.SchemeGroupVersion.WithKind("MCPNetworkPolicy"), source.String(), 0)
+	if err := w.SourceTrigger.Trigger(req.Ctx, obotv1.SchemeGroupVersion.WithKind("MCPNetworkPolicy"), source.String(), 0); err != nil {
+		controllerLog.Error(err, "failed to trigger source MCPNetworkPolicy reconcile",
+			"firewallPolicyNamespace", req.Namespace,
+			"firewallPolicyName", req.Name,
+			"sourceNamespace", source.Namespace,
+			"sourceName", source.Name)
+		return err
+	}
+	return nil
 }
 
 func (w *FirewallPolicyWatcher) sourceForRequest(ctx context.Context, firewallKey, firewallName string, obj kclient.Object) (kclient.ObjectKey, bool, error) {
@@ -101,6 +112,8 @@ func (w *FirewallPolicyWatcher) sourceByFirewallName(ctx context.Context, firewa
 
 	var policies obotv1.MCPNetworkPolicyList
 	if err := w.SourceClient.List(ctx, &policies); err != nil {
+		controllerLog.Error(err, "failed to list MCPNetworkPolicies while resolving FirewallPolicy",
+			"firewallPolicyName", firewallName)
 		return kclient.ObjectKey{}, false, err
 	}
 

@@ -9,7 +9,10 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var controllerLog = ctrlruntimelog.Log.WithName("controller")
 
 type Handler struct {
 	RuntimeClient    kclient.Client
@@ -17,22 +20,46 @@ type Handler struct {
 }
 
 func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
+	log := controllerLog.WithValues(
+		"sourceNamespace", req.Namespace,
+		"sourceName", req.Name,
+		"runtimeNamespace", h.RuntimeNamespace)
+
 	app := apply.New(h.RuntimeClient).
 		WithNamespace(h.RuntimeNamespace).
 		WithOwnerSubContext(sourceSubContext(req.Namespace, req.Name)).
 		WithPruneTypes(&aviatrixv1alpha1.FirewallPolicy{})
 
 	if req.Object == nil {
-		return app.Apply(req.Ctx, nil)
+		if err := app.Apply(req.Ctx, nil); err != nil {
+			log.Error(err, "failed to prune managed FirewallPolicy")
+			return err
+		}
+		return nil
 	}
 
-	policy := req.Object.(*obotv1.MCPNetworkPolicy)
+	policy, ok := req.Object.(*obotv1.MCPNetworkPolicy)
+	if !ok {
+		err := fmt.Errorf("unexpected object type %T", req.Object)
+		log.Error(err, "failed to reconcile MCPNetworkPolicy")
+		return err
+	}
+
 	desired := translate.ToFirewallPolicy(policy, h.RuntimeNamespace)
 	if desired == nil {
-		return app.Apply(req.Ctx, nil)
+		if err := app.Apply(req.Ctx, nil); err != nil {
+			log.Error(err, "failed to prune managed resources after empty translation")
+			return err
+		}
+		return nil
 	}
 
-	return app.Apply(req.Ctx, nil, desired)
+	log = log.WithValues("firewallPolicyNamespace", desired.Namespace, "firewallPolicyName", desired.Name)
+	if err := app.Apply(req.Ctx, nil, desired); err != nil {
+		log.Error(err, "failed to apply managed FirewallPolicy")
+		return err
+	}
+	return nil
 }
 
 func sourceSubContext(namespace, name string) string {
