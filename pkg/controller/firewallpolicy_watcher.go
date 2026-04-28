@@ -89,11 +89,23 @@ func (w *FirewallPolicyWatcher) sourceForRequest(ctx context.Context, firewallKe
 		}
 	}
 
-	w.lock.RLock()
-	source, ok := w.sourceByFirewall[firewallKey]
-	w.lock.RUnlock()
-	if ok {
-		return router.Key(source.namespace, source.name), true, nil
+	if obj == nil {
+		w.lock.Lock()
+		source, ok := w.sourceByFirewall[firewallKey]
+		if ok {
+			delete(w.sourceByFirewall, firewallKey)
+		}
+		w.lock.Unlock()
+		if ok {
+			return router.Key(source.namespace, source.name), true, nil
+		}
+	} else {
+		w.lock.RLock()
+		source, ok := w.sourceByFirewall[firewallKey]
+		w.lock.RUnlock()
+		if ok {
+			return router.Key(source.namespace, source.name), true, nil
+		}
 	}
 
 	if w.SourceNamespace != "" {
@@ -110,8 +122,14 @@ func (w *FirewallPolicyWatcher) sourceByFirewallName(ctx context.Context, firewa
 		return kclient.ObjectKey{}, false, nil
 	}
 
-	var policies obotv1.MCPNetworkPolicyList
-	if err := w.SourceClient.List(ctx, &policies); err != nil {
+	var (
+		policies    obotv1.MCPNetworkPolicyList
+		listOptions []kclient.ListOption
+	)
+	if w.SourceNamespace != "" {
+		listOptions = append(listOptions, kclient.InNamespace(w.SourceNamespace))
+	}
+	if err := w.SourceClient.List(ctx, &policies, listOptions...); err != nil {
 		controllerLog.Error(err, "failed to list MCPNetworkPolicies while resolving FirewallPolicy",
 			"firewallPolicyName", firewallName)
 		return kclient.ObjectKey{}, false, err

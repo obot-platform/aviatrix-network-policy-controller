@@ -45,13 +45,10 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	desired := translate.ToFirewallPolicy(policy, h.RuntimeNamespace)
-	if desired == nil {
-		if err := app.Apply(req.Ctx, nil); err != nil {
-			log.Error(err, "failed to prune managed resources after empty translation")
-			return err
-		}
-		return nil
+	desired, err := translate.ToFirewallPolicy(policy, h.RuntimeNamespace)
+	if err != nil {
+		log.Error(err, "failed to translate MCPNetworkPolicy")
+		return err
 	}
 
 	log = log.WithValues("firewallPolicyNamespace", desired.Namespace, "firewallPolicyName", desired.Name)

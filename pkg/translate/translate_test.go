@@ -20,7 +20,8 @@ func TestTranslateApprovedDomains(t *testing.T) {
 		},
 	}
 
-	fp := ToFirewallPolicy(policy, "obot-mcp")
+	fp, err := ToFirewallPolicy(policy, "obot-mcp")
+	require.NoError(t, err)
 	require.NotNil(t, fp)
 	require.Equal(t, "obot-policy-a-fw", fp.Name)
 	require.Len(t, fp.Spec.Rules, 2)
@@ -40,7 +41,8 @@ func TestTranslateDenyOnly(t *testing.T) {
 		},
 	}
 
-	fp := ToFirewallPolicy(policy, "obot-mcp")
+	fp, err := ToFirewallPolicy(policy, "obot-mcp")
+	require.NoError(t, err)
 	require.NotNil(t, fp)
 	require.Empty(t, fp.Spec.WebGroups)
 	require.Len(t, fp.Spec.Rules, 1)
@@ -56,7 +58,8 @@ func TestTranslateDefaultWildcardDomain(t *testing.T) {
 		},
 	}
 
-	fp := ToFirewallPolicy(policy, "obot-mcp")
+	fp, err := ToFirewallPolicy(policy, "obot-mcp")
+	require.NoError(t, err)
 	require.NotNil(t, fp)
 	require.Len(t, fp.Spec.WebGroups, 1)
 	require.Equal(t, []string{"*"}, fp.Spec.WebGroups[0].Domains)
@@ -75,11 +78,25 @@ func TestProducedObjectShape(t *testing.T) {
 		},
 	}
 
-	fp := ToFirewallPolicy(policy, "obot-mcp")
+	fp, err := ToFirewallPolicy(policy, "obot-mcp")
+	require.NoError(t, err)
 	require.NotNil(t, fp)
 	require.Equal(t, aviatrixv1alpha1.SchemeGroupVersion.String(), fp.APIVersion)
 	require.Equal(t, "FirewallPolicy", fp.Kind)
 	require.Equal(t, "any-destination", fp.Spec.Rules[0].DestinationSmartGroups[0].Name)
+}
+
+func TestTranslateRejectsEmptyPodSelector(t *testing.T) {
+	policy := &obotv1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-empty", Namespace: "default"},
+		Spec: obotv1.MCPNetworkPolicySpec{
+			MCPServerName: "server-empty",
+		},
+	}
+
+	fp, err := ToFirewallPolicy(policy, "obot-mcp")
+	require.Nil(t, fp)
+	require.ErrorContains(t, err, "empty podSelector")
 }
 
 func TestMCPNetworkPolicyNameFromFirewallPolicyName(t *testing.T) {

@@ -90,6 +90,27 @@ func TestHandlerCreatesManagedFirewallPolicy(t *testing.T) {
 	}
 }
 
+func TestHandlerRejectsEmptyPodSelector(t *testing.T) {
+	scheme := newScheme(t)
+	policy := &obotv1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-empty", Namespace: "default", UID: "uid-empty"},
+		Spec: obotv1.MCPNetworkPolicySpec{
+			MCPServerName: "server-empty",
+			EgressDomains: []string{"api.example.com"},
+		},
+	}
+
+	handler := newHandler(t)
+	if _, err := (&tester.Harness{Scheme: scheme}).InvokeFunc(t, policy, handler.Reconcile); err == nil {
+		t.Fatal("expected empty podSelector to fail reconciliation")
+	}
+
+	var created aviatrixv1alpha1.FirewallPolicy
+	if err := handler.RuntimeClient.Get(t.Context(), kclient.ObjectKey{Namespace: "obot-mcp", Name: "obot-policy-empty-fw"}, &created); err == nil {
+		t.Fatal("expected no FirewallPolicy to be created for invalid source policy")
+	}
+}
+
 func TestHandlerLifecycle(t *testing.T) {
 	scheme := newScheme(t)
 	policy := &obotv1.MCPNetworkPolicy{
@@ -221,6 +242,9 @@ func TestFirewallPolicyWatcherTriggersSourceOnDelete(t *testing.T) {
 			t.Fatalf("unexpected source key: %s", call.key)
 		}
 	}
+	if len(watcher.sourceByFirewall) != 0 {
+		t.Fatalf("expected cached source mapping to be removed after delete, got %d entries", len(watcher.sourceByFirewall))
+	}
 }
 
 func TestFirewallPolicyWatcherIgnoresUnmanagedDelete(t *testing.T) {
@@ -281,5 +305,27 @@ func TestFirewallPolicyWatcherFallsBackToSourceListForHashedName(t *testing.T) {
 	}
 	if trigger.calls[0].key != "default/"+longName {
 		t.Fatalf("unexpected source key: %s", trigger.calls[0].key)
+	}
+}
+
+func TestFirewallPolicyWatcherScopesFallbackListToSourceNamespace(t *testing.T) {
+	scheme := newScheme(t)
+	longName := "policy-" + strings.Repeat("a", 80)
+	sourceClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&obotv1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: longName, Namespace: "other"},
+	}).Build()
+	trigger := &recordingTrigger{}
+	watcher := NewFirewallPolicyWatcher(trigger, sourceClient, "obot-mcp", "default")
+
+	if err := watcher.Handle(nahrouter.Request{
+		Ctx:       t.Context(),
+		Name:      translate.NameForMCPNetworkPolicy(longName),
+		Namespace: "obot-mcp",
+	}, &nahrouter.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(trigger.calls) != 0 {
+		t.Fatalf("expected no trigger calls outside source namespace, got %d", len(trigger.calls))
 	}
 }

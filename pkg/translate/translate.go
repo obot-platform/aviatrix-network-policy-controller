@@ -24,9 +24,12 @@ const (
 
 var invalidNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 
-func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) *aviatrixv1alpha1.FirewallPolicy {
+func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) (*aviatrixv1alpha1.FirewallPolicy, error) {
 	if policy == nil {
-		return nil
+		return nil, fmt.Errorf("mcpnetworkpolicy is nil")
+	}
+	if len(policy.Spec.PodSelector) == 0 {
+		return nil, fmt.Errorf("mcpnetworkpolicy %s/%s has empty podSelector", policy.Namespace, policy.Name)
 	}
 
 	domains := slices.Clone(policy.Spec.EgressDomains)
@@ -104,7 +107,7 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 		})
 	}
 
-	return fp
+	return fp, nil
 }
 
 func NameForMCPNetworkPolicy(policyName string) string {
