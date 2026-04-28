@@ -14,6 +14,8 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const obotStorageNamespace = "default"
+
 func Run(ctx context.Context) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -41,7 +43,7 @@ func Run(ctx context.Context) error {
 	r, err := nah.NewRouter("aviatrix-network-policy-controller", &nah.Options{
 		RESTConfig:  storageConfig,
 		Scheme:      scheme,
-		Namespace:   "default",
+		Namespace:   obotStorageNamespace,
 		HealthzPort: 8081,
 	})
 	if err != nil {
@@ -72,7 +74,7 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create runtime router: %w", err)
 	}
-	firewallPolicyWatcher := controller.NewFirewallPolicyWatcher(r.Backend(), r.Backend(), cfg.MCPRuntimeNamespace)
+	firewallPolicyWatcher := controller.NewFirewallPolicyWatcher(r.Backend(), r.Backend(), cfg.MCPRuntimeNamespace, obotStorageNamespace)
 	runtimeRouter.Type(&aviatrixv1alpha1.FirewallPolicy{}).IncludeRemoved().HandlerFunc(firewallPolicyWatcher.Handle)
 
 	if err := r.Start(ctx); err != nil {

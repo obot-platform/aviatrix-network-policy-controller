@@ -28,18 +28,23 @@ type FirewallPolicyWatcher struct {
 	SourceTrigger    sourceTrigger
 	SourceClient     kclient.Client
 	RuntimeNamespace string
+	SourceNamespace  string
 
 	lock             sync.RWMutex
 	sourceByFirewall map[string]sourceKey
 }
 
-func NewFirewallPolicyWatcher(sourceTrigger sourceTrigger, sourceClient kclient.Client, runtimeNamespace string) *FirewallPolicyWatcher {
-	return &FirewallPolicyWatcher{
+func NewFirewallPolicyWatcher(sourceTrigger sourceTrigger, sourceClient kclient.Client, runtimeNamespace string, sourceNamespace ...string) *FirewallPolicyWatcher {
+	w := &FirewallPolicyWatcher{
 		SourceTrigger:    sourceTrigger,
 		SourceClient:     sourceClient,
 		RuntimeNamespace: runtimeNamespace,
 		sourceByFirewall: map[string]sourceKey{},
 	}
+	if len(sourceNamespace) > 0 {
+		w.SourceNamespace = sourceNamespace[0]
+	}
+	return w
 }
 
 func (w *FirewallPolicyWatcher) Handle(req router.Request, _ router.Response) error {
@@ -78,6 +83,12 @@ func (w *FirewallPolicyWatcher) sourceForRequest(ctx context.Context, firewallKe
 	w.lock.RUnlock()
 	if ok {
 		return router.Key(source.namespace, source.name), true, nil
+	}
+
+	if w.SourceNamespace != "" {
+		if sourceName, ok := translate.MCPNetworkPolicyNameFromFirewallPolicyName(firewallName); ok {
+			return router.Key(w.SourceNamespace, sourceName), true, nil
+		}
 	}
 
 	return w.sourceByFirewallName(ctx, firewallName)

@@ -28,6 +28,6 @@ setup-env:
 	fi
 
 lint-go: setup-env
-	$(GOLANGCI_LINT) run
+	golangci-lint run
 
 .PHONY: build test lint lint-go fmt generate setup-env

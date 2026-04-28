@@ -2,11 +2,13 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	aviatrixv1alpha1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/networking.aviatrix.com/v1alpha1"
 	obotv1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/aviatrix-network-policy-controller/pkg/translate"
 	"github.com/obot-platform/nah/pkg/apply"
 	nahrouter "github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/router/tester"
@@ -238,12 +240,8 @@ func TestFirewallPolicyWatcherIgnoresUnmanagedDelete(t *testing.T) {
 }
 
 func TestFirewallPolicyWatcherFindsSourceForUnindexedDelete(t *testing.T) {
-	scheme := newScheme(t)
-	sourceClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&obotv1.MCPNetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "policy-a", Namespace: "default"},
-	}).Build()
 	trigger := &recordingTrigger{}
-	watcher := NewFirewallPolicyWatcher(trigger, sourceClient, "obot-mcp")
+	watcher := NewFirewallPolicyWatcher(trigger, nil, "obot-mcp", "default")
 
 	if err := watcher.Handle(nahrouter.Request{
 		Ctx:       t.Context(),
@@ -257,6 +255,31 @@ func TestFirewallPolicyWatcherFindsSourceForUnindexedDelete(t *testing.T) {
 		t.Fatalf("expected one trigger call, got %d", len(trigger.calls))
 	}
 	if trigger.calls[0].key != "default/policy-a" {
+		t.Fatalf("unexpected source key: %s", trigger.calls[0].key)
+	}
+}
+
+func TestFirewallPolicyWatcherFallsBackToSourceListForHashedName(t *testing.T) {
+	scheme := newScheme(t)
+	longName := "policy-" + strings.Repeat("a", 80)
+	sourceClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&obotv1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: longName, Namespace: "default"},
+	}).Build()
+	trigger := &recordingTrigger{}
+	watcher := NewFirewallPolicyWatcher(trigger, sourceClient, "obot-mcp", "default")
+
+	if err := watcher.Handle(nahrouter.Request{
+		Ctx:       t.Context(),
+		Name:      translate.NameForMCPNetworkPolicy(longName),
+		Namespace: "obot-mcp",
+	}, &nahrouter.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(trigger.calls) != 1 {
+		t.Fatalf("expected one trigger call, got %d", len(trigger.calls))
+	}
+	if trigger.calls[0].key != "default/"+longName {
 		t.Fatalf("unexpected source key: %s", trigger.calls[0].key)
 	}
 }

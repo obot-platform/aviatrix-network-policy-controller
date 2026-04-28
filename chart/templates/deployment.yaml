@@ -30,6 +30,22 @@ spec:
               value: {{ .Values.obotStorageTokenFile | quote }}
             - name: MCP_RUNTIME_NAMESPACE
               value: {{ .Values.mcpRuntimeNamespace | quote }}
+          ports:
+            - name: healthz
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 5
+            periodSeconds: 10
           volumeMounts:
             - name: provider-token
               mountPath: /var/run/secrets/obot-network-policy-provider

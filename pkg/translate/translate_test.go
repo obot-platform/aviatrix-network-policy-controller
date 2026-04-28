@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"strings"
 	"testing"
 
 	aviatrixv1alpha1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/networking.aviatrix.com/v1alpha1"
@@ -79,4 +80,17 @@ func TestProducedObjectShape(t *testing.T) {
 	require.Equal(t, aviatrixv1alpha1.SchemeGroupVersion.String(), fp.APIVersion)
 	require.Equal(t, "FirewallPolicy", fp.Kind)
 	require.Equal(t, "any-destination", fp.Spec.Rules[0].DestinationSmartGroups[0].Name)
+}
+
+func TestMCPNetworkPolicyNameFromFirewallPolicyName(t *testing.T) {
+	policyName, ok := MCPNetworkPolicyNameFromFirewallPolicyName("obot-policy-a-fw")
+	require.True(t, ok)
+	require.Equal(t, "policy-a", policyName)
+
+	_, ok = MCPNetworkPolicyNameFromFirewallPolicyName("unmanaged")
+	require.False(t, ok)
+
+	longName := "policy-" + strings.Repeat("a", 80)
+	_, ok = MCPNetworkPolicyNameFromFirewallPolicyName(NameForMCPNetworkPolicy(longName))
+	require.False(t, ok)
 }

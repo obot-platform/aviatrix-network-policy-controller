@@ -123,6 +123,21 @@ func NameForMCPNetworkPolicy(policyName string) string {
 	return fmt.Sprintf("obot-%s-fw-%s", strings.Trim(base[:prefixLimit], "-"), suffix)
 }
 
+func MCPNetworkPolicyNameFromFirewallPolicyName(firewallName string) (string, bool) {
+	policyName, ok := strings.CutPrefix(firewallName, "obot-")
+	if !ok {
+		return "", false
+	}
+	policyName, ok = strings.CutSuffix(policyName, "-fw")
+	if !ok || policyName == "" {
+		return "", false
+	}
+	if NameForMCPNetworkPolicy(policyName) != firewallName {
+		return "", false
+	}
+	return policyName, true
+}
+
 func sanitizeName(name string) string {
 	name = strings.ToLower(name)
 	name = invalidNameChars.ReplaceAllString(name, "-")
