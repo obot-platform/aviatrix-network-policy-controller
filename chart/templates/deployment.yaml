@@ -15,6 +15,10 @@ spec:
         app.kubernetes.io/name: {{ include "aviatrix-network-policy-controller.name" . }}
     spec:
       serviceAccountName: {{ include "aviatrix-network-policy-controller.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -23,6 +27,10 @@ spec:
         - name: controller
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
             - name: OBOT_STORAGE_URL
               value: {{ .Values.obotStorageURL | quote }}
@@ -46,6 +54,10 @@ spec:
               port: healthz
             initialDelaySeconds: 5
             periodSeconds: 10
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: provider-token
               mountPath: /var/run/secrets/obot-network-policy-provider

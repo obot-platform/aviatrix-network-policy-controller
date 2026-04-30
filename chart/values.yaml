@@ -11,6 +11,28 @@ serviceAccount:
   create: true
   name: ""
 
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
 secretName: obot-network-policy-provider
 obotStorageURL: ""
 obotStorageTokenFile: /var/run/secrets/obot-network-policy-provider/apiKey
