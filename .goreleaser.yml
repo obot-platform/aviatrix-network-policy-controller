@@ -1,0 +1,88 @@
+version: 2
+before:
+  hooks:
+    - go generate ./...
+dist: releases
+snapshot:
+  version_template: "{{ .Summary }}"
+builds:
+  - id: default
+    env:
+      - CGO_ENABLED=0
+    binary: aviatrix-network-policy-controller
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    tags:
+      - netgo
+    flags:
+      - -trimpath
+    ldflags:
+      - -s
+      - -w
+      - -extldflags "-static"
+archives:
+  - formats: ["tar.gz"]
+    ids:
+      - default
+    name_template: >-
+      {{ .ProjectName }}_ {{- .Os }}_ {{- if eq .Arch "amd64" }}x86_64 {{- else }}{{ .Arch }}{{ end }}
+checksum:
+  name_template: "{{ .ProjectName }}_v{{ .Version }}_checksums.txt"
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+release:
+  github:
+    owner: obot-platform
+    name: aviatrix-network-policy-controller
+  prerelease: auto
+dockers:
+  - image_templates:
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:v{{ .Version }}-amd64"
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:latest-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--target=release"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.description=Aviatrix network policy controller"
+    goarch: amd64
+  - image_templates:
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:v{{ .Version }}-arm64"
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:latest-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--target=release"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.description=Aviatrix network policy controller"
+    goarch: arm64
+docker_manifests:
+  - name_template: "ghcr.io/obot-platform/aviatrix-network-policy-controller:v{{ .Version }}"
+    image_templates:
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:v{{ .Version }}-amd64"
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:v{{ .Version }}-arm64"
+  - name_template: "ghcr.io/obot-platform/aviatrix-network-policy-controller:latest"
+    image_templates:
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:latest-amd64"
+      - "ghcr.io/obot-platform/aviatrix-network-policy-controller:latest-arm64"

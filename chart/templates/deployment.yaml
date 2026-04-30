@@ -21,7 +21,7 @@ spec:
       {{- end }}
       containers:
         - name: controller
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ include "aviatrix-network-policy-controller.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: OBOT_STORAGE_URL
