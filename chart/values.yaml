@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/obot-platform/aviatrix-network-policy-controller
-  tag: main
+  tag: ""
   pullPolicy: Always
 
 imagePullSecrets: []
