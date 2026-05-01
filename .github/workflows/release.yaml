@@ -42,3 +42,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+  chart-release:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package Helm chart
+        run: helm package chart --destination ./.packaged --version ${{ github.ref_name }} --app-version ${{ github.ref_name }}
+
+      - name: Checkout GitHub Pages Repository
+        uses: actions/checkout@v6
+        with:
+          repository: obot-platform/charts
+          token: ${{ secrets.CHARTS_REPO_TOKEN }}
+          path: gh-pages
+
+      - name: Update Helm Repo Index
+        run: |
+          cd gh-pages
+          mkdir -p charts
+          mv ../.packaged/* charts/
+          helm repo index . --url https://charts.obot.ai/ --merge index.yaml
+
+      - name: Commit and Push Changes
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "Release new aviatrix-network-policy-controller Helm chart version ${{ github.ref_name }}" || echo "No changes to commit"
+          git push
