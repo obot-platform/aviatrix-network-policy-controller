@@ -1,8 +1,6 @@
 package translate
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"maps"
 	"regexp"
@@ -11,6 +9,7 @@ import (
 
 	aviatrixv1alpha1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/networking.aviatrix.com/v1alpha1"
 	obotv1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/nah/pkg/name"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -111,19 +110,7 @@ func ToFirewallPolicy(policy *obotv1.MCPNetworkPolicy, runtimeNamespace string) 
 }
 
 func NameForMCPNetworkPolicy(policyName string) string {
-	base := sanitizeName(policyName)
-	name := "obot-" + base + "-fw"
-	if len(name) <= 63 {
-		return strings.Trim(name, "-")
-	}
-
-	sum := sha1.Sum([]byte(name))
-	suffix := hex.EncodeToString(sum[:])[:8]
-	prefixLimit := 63 - len("obot--fw-") - len(suffix)
-	if prefixLimit < 1 {
-		prefixLimit = 1
-	}
-	return fmt.Sprintf("obot-%s-fw-%s", strings.Trim(base[:prefixLimit], "-"), suffix)
+	return name.SafeConcatName("obot", sanitizeName(policyName), "fw")
 }
 
 func MCPNetworkPolicyNameFromFirewallPolicyName(firewallName string) (string, bool) {

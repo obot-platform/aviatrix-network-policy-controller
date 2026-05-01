@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	aviatrixv1alpha1 "github.com/obot-platform/aviatrix-network-policy-controller/pkg/apis/networking.aviatrix.com/v1alpha1"
@@ -29,9 +28,6 @@ type FirewallPolicyWatcher struct {
 	SourceClient     kclient.Client
 	RuntimeNamespace string
 	SourceNamespace  string
-
-	lock             sync.RWMutex
-	sourceByFirewall map[string]sourceKey
 }
 
 func NewFirewallPolicyWatcher(sourceTrigger sourceTrigger, sourceClient kclient.Client, runtimeNamespace string, sourceNamespace ...string) *FirewallPolicyWatcher {
@@ -39,7 +35,6 @@ func NewFirewallPolicyWatcher(sourceTrigger sourceTrigger, sourceClient kclient.
 		SourceTrigger:    sourceTrigger,
 		SourceClient:     sourceClient,
 		RuntimeNamespace: runtimeNamespace,
-		sourceByFirewall: map[string]sourceKey{},
 	}
 	if len(sourceNamespace) > 0 {
 		w.SourceNamespace = sourceNamespace[0]
@@ -52,12 +47,8 @@ func (w *FirewallPolicyWatcher) Handle(req router.Request, _ router.Response) er
 		return nil
 	}
 
-	firewallKey := router.Key(req.Namespace, req.Name).String()
-	source, ok, err := w.sourceForRequest(req.Ctx, firewallKey, req.Name, req.Object)
+	source, ok, err := w.sourceForRequest(req.Ctx, req.Name, req.Object)
 	if err != nil {
-		controllerLog.Error(err, "failed to resolve source MCPNetworkPolicy for FirewallPolicy event",
-			"firewallPolicyNamespace", req.Namespace,
-			"firewallPolicyName", req.Name)
 		return err
 	}
 	if !ok {
@@ -65,47 +56,25 @@ func (w *FirewallPolicyWatcher) Handle(req router.Request, _ router.Response) er
 	}
 
 	if err := w.SourceTrigger.Trigger(req.Ctx, obotv1.SchemeGroupVersion.WithKind("MCPNetworkPolicy"), source.String(), 0); err != nil {
-		controllerLog.Error(err, "failed to trigger source MCPNetworkPolicy reconcile",
-			"firewallPolicyNamespace", req.Namespace,
-			"firewallPolicyName", req.Name,
-			"sourceNamespace", source.Namespace,
-			"sourceName", source.Name)
 		return err
 	}
 	return nil
 }
 
-func (w *FirewallPolicyWatcher) sourceForRequest(ctx context.Context, firewallKey, firewallName string, obj kclient.Object) (kclient.ObjectKey, bool, error) {
+func (w *FirewallPolicyWatcher) sourceForRequest(ctx context.Context, firewallName string, obj kclient.Object) (kclient.ObjectKey, bool, error) {
 	if obj != nil {
 		firewallPolicy, ok := obj.(*aviatrixv1alpha1.FirewallPolicy)
 		if !ok {
 			return kclient.ObjectKey{}, false, nil
 		}
 		if source, ok := sourceFromFirewallPolicy(firewallPolicy); ok {
-			w.lock.Lock()
-			w.sourceByFirewall[firewallKey] = source
-			w.lock.Unlock()
 			return router.Key(source.namespace, source.name), true, nil
 		}
 	}
 
-	if obj == nil {
-		w.lock.Lock()
-		source, ok := w.sourceByFirewall[firewallKey]
-		if ok {
-			delete(w.sourceByFirewall, firewallKey)
-		}
-		w.lock.Unlock()
-		if ok {
-			return router.Key(source.namespace, source.name), true, nil
-		}
-	} else {
-		w.lock.RLock()
-		source, ok := w.sourceByFirewall[firewallKey]
-		w.lock.RUnlock()
-		if ok {
-			return router.Key(source.namespace, source.name), true, nil
-		}
+	source, ok, err := w.sourceByFirewallName(ctx, firewallName)
+	if err != nil || ok {
+		return source, ok, err
 	}
 
 	if w.SourceNamespace != "" {
@@ -114,7 +83,7 @@ func (w *FirewallPolicyWatcher) sourceForRequest(ctx context.Context, firewallKe
 		}
 	}
 
-	return w.sourceByFirewallName(ctx, firewallName)
+	return kclient.ObjectKey{}, false, nil
 }
 
 func (w *FirewallPolicyWatcher) sourceByFirewallName(ctx context.Context, firewallName string) (kclient.ObjectKey, bool, error) {
@@ -130,8 +99,6 @@ func (w *FirewallPolicyWatcher) sourceByFirewallName(ctx context.Context, firewa
 		listOptions = append(listOptions, kclient.InNamespace(w.SourceNamespace))
 	}
 	if err := w.SourceClient.List(ctx, &policies, listOptions...); err != nil {
-		controllerLog.Error(err, "failed to list MCPNetworkPolicies while resolving FirewallPolicy",
-			"firewallPolicyName", firewallName)
 		return kclient.ObjectKey{}, false, err
 	}
 

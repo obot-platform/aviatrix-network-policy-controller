@@ -204,8 +204,11 @@ func TestFirewallPolicyWatcherTriggersSourceOnDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	sourceClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&obotv1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-a", Namespace: "default"},
+	}).Build()
 	trigger := &recordingTrigger{}
-	watcher := NewFirewallPolicyWatcher(trigger, nil, "obot-mcp")
+	watcher := NewFirewallPolicyWatcher(trigger, sourceClient, "obot-mcp", "default")
 	firewallPolicy := &aviatrixv1alpha1.FirewallPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "obot-policy-a-fw",
@@ -241,9 +244,6 @@ func TestFirewallPolicyWatcherTriggersSourceOnDelete(t *testing.T) {
 		if call.key != "default/policy-a" {
 			t.Fatalf("unexpected source key: %s", call.key)
 		}
-	}
-	if len(watcher.sourceByFirewall) != 0 {
-		t.Fatalf("expected cached source mapping to be removed after delete, got %d entries", len(watcher.sourceByFirewall))
 	}
 }
 
@@ -304,6 +304,30 @@ func TestFirewallPolicyWatcherFallsBackToSourceListForHashedName(t *testing.T) {
 		t.Fatalf("expected one trigger call, got %d", len(trigger.calls))
 	}
 	if trigger.calls[0].key != "default/"+longName {
+		t.Fatalf("unexpected source key: %s", trigger.calls[0].key)
+	}
+}
+
+func TestFirewallPolicyWatcherPrefersSourceListForSanitizedName(t *testing.T) {
+	scheme := newScheme(t)
+	sourceClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&obotv1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy.a", Namespace: "default"},
+	}).Build()
+	trigger := &recordingTrigger{}
+	watcher := NewFirewallPolicyWatcher(trigger, sourceClient, "obot-mcp", "default")
+
+	if err := watcher.Handle(nahrouter.Request{
+		Ctx:       t.Context(),
+		Name:      translate.NameForMCPNetworkPolicy("policy.a"),
+		Namespace: "obot-mcp",
+	}, &nahrouter.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(trigger.calls) != 1 {
+		t.Fatalf("expected one trigger call, got %d", len(trigger.calls))
+	}
+	if trigger.calls[0].key != "default/policy.a" {
 		t.Fatalf("unexpected source key: %s", trigger.calls[0].key)
 	}
 }
