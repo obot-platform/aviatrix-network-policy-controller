@@ -1,5 +1,7 @@
 .git
 .gitignore
+bin
+releases
 chart
 README.md
 LICENSE

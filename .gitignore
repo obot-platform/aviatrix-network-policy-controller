@@ -3,6 +3,7 @@
 #
 # Binaries for programs and plugins
 bin/
+releases/*
 *.exe
 *.exe~
 *.dll
