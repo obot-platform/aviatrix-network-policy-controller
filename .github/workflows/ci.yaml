@@ -32,9 +32,6 @@ jobs:
       - name: Verify generated files
         run: git diff --exit-code
 
-      - name: Build
-        run: make build
-
       - name: Test
         run: make test
 
