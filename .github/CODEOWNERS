@@ -1,0 +1,5 @@
+
+# Dependabot dependency ownership
+/chart/Chart.yaml @obot-platform/obot-backend
+/go.mod @obot-platform/obot-backend
+/go.sum @obot-platform/obot-backend
